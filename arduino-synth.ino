@@ -12,7 +12,7 @@ const int testPin2 = A2;
 
 Oscil <SIN2048_NUM_CELLS, AUDIO_RATE> aCarrier(SIN2048_DATA);
 Oscil <SIN2048_NUM_CELLS, AUDIO_RATE> aModulator(SIN2048_DATA);
-// Oscil <SIN2048_NUM_CELLS, AUDIO_RATE> aModDepth(SIN2048_DATA);
+Oscil <SIN2048_NUM_CELLS, AUDIO_RATE> aModulator2(SIN2048_DATA);
 
 #define CONTROL_RATE 64 // Defines how many times per second updateControl() is called
 
@@ -42,7 +42,7 @@ void updateControl(){
     byte attack_level = 255;                                    // TODO: Assign this to a pot
     byte release_level = 0;                                     // TODO: Assign this to a pot
     envelope.setLevels(attack_level, 255, 255, release_level);    // We only play with attack and Release
-    envelope.setTimes(50, 0, 0, 450);                            // attack = 0.5 seconds, release = 2 seconds
+    envelope.setTimes(25, 0, 0, 450);                            // attack = 0.5 seconds, release = 2 seconds
     envelope.noteOn();
     // Play a random note:
     //byte midi_note = rand(40)+40;
@@ -59,9 +59,13 @@ void updateControl(){
   int modRatio = (mozziAnalogRead(testPin2) >> 6) + 1;  // Convert range 0-1023 to range 1-8
   int modFreq = modRatio * carrierFreq;
 
+  int modRatio2 = (mozziAnalogRead(testPin1) >> 6) + 1;
+  int modFreq2 = modRatio2 * modFreq;                   // This can get interesting
+
   deviation = float_to_Q16n16((float) modFreq);
   
   aModulator.setFreq(modFreq);
+  aModulator2.setFreq(modFreq2 >> 8);
 }
 
 AudioOutput_t updateAudio(){
@@ -69,8 +73,10 @@ AudioOutput_t updateAudio(){
   // return MonoOutput::from16Bit((int) (envelope.next() * aCarrier.next()));      // = normal sound wave output
   // Let's try some phase modulation:
   Q15n16 modulation = deviation * aModulator.next() >> 16;
-  // return MonoOutput::from8Bit(aCarrier.phMod(modulation));
-  return MonoOutput::from16Bit((int) (envelope.next() * aCarrier.phMod(modulation)));
+  // Modulate the modulation:
+  Q15n16 modulation2 = deviation * aModulator2.phMod(modulation) >> 16;
+  
+  return MonoOutput::from16Bit((int) (envelope.next() * aCarrier.phMod(modulation2)));
 }
 
 
